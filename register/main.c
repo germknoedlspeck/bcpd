@@ -179,6 +179,7 @@ void check_prms(const pwpm pm, const pwsz sz){
 }
 
 void pw_getopt(pwpm *pm, int argc, char **argv){ int opt;
+  strcpy(pm->fn[ERRORS],"Zeta.txt");
   strcpy(pm->fn[TARGET],"X.txt");   pm->omg=0.0; pm->cnv=1e-4; pm->K=0; pm->opt=0.0; pm->btn=0.20; pm->bet=2.0;
   strcpy(pm->fn[SOURCE],"Y.txt");   pm->lmd=2.0; pm->nlp= 500; pm->J=0; pm->dlt=7.0; pm->lim=0.15; pm->eps=1e-3;
   strcpy(pm->fn[OUTPUT],"output_"); pm->rns=0;   pm->llp=  30; pm->G=0; pm->gma=1.0; pm->kpa=ZERO; pm->nrm='e';
@@ -187,7 +188,7 @@ void pw_getopt(pwpm *pm, int argc, char **argv){ int opt;
   strcpy(pm->fn[FUNC_X],"");
   pm->dwn[SOURCE]=0; pm->dwr[SOURCE]=0.0f;
   pm->dwn[TARGET]=0; pm->dwr[TARGET]=0.0f;
-  while((opt=getopt(argc,argv,"X:Y:D:z:u:r:w:l:b:k:g:d:e:c:n:N:G:J:K:o:x:y:f:s:hpqvaAtWS1"))!=-1){
+  while((opt=getopt(argc,argv,"X:Y:D:z:u:r:w:l:b:k:g:d:e:c:n:N:G:J:K:o:Z:x:y:f:s:hpqvaAtWS1"))!=-1){
     switch(opt){
       case 'D': scan_dwpm( pm->dwn, pm->dwr,optarg);  break;
       case 'G': scan_kernel(pm, optarg);              break;
@@ -216,6 +217,7 @@ void pw_getopt(pwpm *pm, int argc, char **argv){ int opt;
       case 'S': pm->opt |= PW_OPT_NOSIM;              break;
       case '1': pm->opt |= PW_OPT_1NN;                break;
       case 'o': strcpy(pm->fn[OUTPUT],optarg);        break;
+      case 'Z': strcpy(pm->fn[ERRORS],optarg);        break;
       case 'x': strcpy(pm->fn[TARGET],optarg);        break;
       case 'y': strcpy(pm->fn[SOURCE],optarg);        break;
       case 'X': strcpy(pm->fn[FUNC_X],optarg);        break;
@@ -327,22 +329,25 @@ void fprint_comptime2(FILE *fp, const struct timeval *tv, double *tt, int geok){
 
 int main(int argc, char **argv){
   int d,k,l,m,n,D,M,N,lp; char mode; double s,r,Np,sgmX,sgmY,*muX,*muY; double *u,*v,*w,*R,*t,*a,*sgm;
-  pwpm pm; pwsz sz; double *x,*y,*X,*Y,*wd,**bX,**bY; int *wi; int sd=sizeof(double),si=sizeof(int); FILE *fp; char fn[256];
+  pwpm pm; pwsz sz; double *x,*y,*X,*Y,*Zeta,*wd,**bX,**bY,**bZeta; int *wi; int sd=sizeof(double),si=sizeof(int); FILE *fp; char fn[256];
   int dsz,isz,ysz,xsz; char *ytraj=".optpath.bin",*xtraj=".optpathX.bin"; double tt[7]; struct timeval tv[7];
   int nx,ny,N0,M0=0; double rx,ry,*T,*X0,*Y0=NULL; double sgmT,*muT; double *pf;
   double *LQ=NULL,*LQ0=NULL; int *Ux,*Uy; int K; int geok=0; double *x0;
-
+ 
   gettimeofday(tv+0,NULL); tt[0]=clock();
   /* read files */
   pw_getopt(&pm,argc,argv);
+  bZeta=read2d(&N,&D,&mode,pm.fn[ERRORS],"NA"); Zeta=calloc(N,sd); sz.N=N;
   bX=read2d(&N,&D,&mode,pm.fn[TARGET],"NA"); X=calloc(D*N,sd); sz.D=D;
   bY=read2d(&M,&D,&mode,pm.fn[SOURCE],"NA"); Y=calloc(D*M,sd);
   /* init: random number */
   init_genrand64(pm.rns?pm.rns:clock());
-  /* check dimension */
+  /* check dimension 	*/
   if(D  != sz.D){printf("ERROR: Dimensions of X and Y are incosistent. dim(X)=%d, dim(Y)=%d\n",sz.D,D);exit(EXIT_FAILURE);}
+  if(N  != sz.N){printf("ERROR: Lengths of X and Zeta are incosistent. len(X)=%d, len(Zeta)=%d\n",N,sz.N);exit(EXIT_FAILURE);}
   if(N<=D||M<=D){printf("ERROR: #points must be greater than dimension\n");exit(EXIT_FAILURE);}
   /* change memory layout */
+  for(n=0;n<N;n++){Zeta[n]=bZeta[n][0];} free2d(bZeta,N);
   for(d=0;d<D;d++)for(n=0;n<N;n++){X[d+D*n]=bX[n][d];} free2d(bX,N);
   for(d=0;d<D;d++)for(m=0;m<M;m++){Y[d+D*m]=bY[m][d];} free2d(bY,M);
   /* alias: size */
@@ -352,7 +357,7 @@ int main(int argc, char **argv){
   check_prms(pm,sz);
   /* print: paramters */
   if(!(pm.opt&PW_OPT_QUIET)) printInfo(sz,pm);
-  /* normalization */
+  /* normalization TODO important: Include Zeta in normalization*/
   muX=calloc(D,sd); muY=calloc(D,sd);
   if(!(pm.opt&PW_OPT_QUIET)&&(D==2||D==3)) print_norm(X,Y,D,N,M,1,pm.nrm);
   normalize_batch(X,muX,&sgmX,Y,muY,&sgmY,N,M,D,pm.nrm);
@@ -371,7 +376,7 @@ int main(int argc, char **argv){
     if(geok&&!(pm.opt&PW_OPT_QUIET)) fprintf(stderr,"done. (K->%d)\n\n",K);
   }
 
-  /* downsampling */
+  /* downsampling TODO: Include Zeta*/
   gettimeofday(tv+2,NULL); tt[2]=clock();
   nx=pm.dwn[TARGET]; rx=pm.dwr[TARGET];
   ny=pm.dwn[SOURCE]; ry=pm.dwr[SOURCE];
@@ -393,7 +398,7 @@ int main(int argc, char **argv){
   wd=calloc(dsz,sd); x=calloc(xsz,sd); a=calloc(M,sd); u=calloc(D*M,sd); R=calloc(D*D,sd); sgm=calloc(M,sd);
   wi=calloc(isz,si); y=calloc(ysz,sd); w=calloc(M,sd); v=calloc(D*M,sd); t=calloc(D,  sd); pf =calloc(3*pm.nlp,sd);
   /* main computation */
-  lp=bcpd(x,y,u,v,w,a,sgm,&s,R,t,&r,&Np,pf,wd,wi,X,Y,LQ,sz,pm);
+  lp=bcpd(x,y,u,v,w,a,sgm,&s,R,t,&r,&Np,pf,wd,wi,X,Y,Zeta,LQ,sz,pm);
   /* interpolation */
   gettimeofday(tv+4,NULL); tt[4]=clock();
   if(ny){

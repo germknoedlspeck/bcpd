@@ -22,7 +22,8 @@ enum gram_flag{
   GRAM_FLAG_LOCAL = (1<<1),
   GRAM_FLAG_REUSE = (1<<2),
   GRAM_FLAG_TRANS = (1<<3),
-  GRAM_FLAG_BUILD = (1<<4)
+  GRAM_FLAG_BUILD = (1<<4),
+  GRAM_FLAG_STARR = (1<<5)
 };
 
 void gaussprod(
@@ -31,6 +32,7 @@ void gaussprod(
        int           *wi,    /*  W  | M + N       | memory                    */
        const double  *Y,     /*  I  | D x M       | input matrix Y            */
        const double  *X,     /*  I  | D x N       | input matrix X            */
+       const double  *Zeta,  /*  I  | N           | input errors Zeta         */
        const double  *q,     /*  I  | J = N or M  | weight vector q           */
        int           *T,     /* I/W | 3 x J +1    | kdtree                    */
        int            D,     /*  I  | const.      | dimension                 */
@@ -50,6 +52,7 @@ void gaussprod_batch(
        int           *wi,    /*  W  |   *               | memory                    */
        const double  *Y,     /*  I  | D  x M            | input matrix Y            */
        const double  *X,     /*  I  | D  x N            | input matrix X            */
+       const double  *Zeta,  /*  I  | N                 | input errors Zeta         */
        const double  *q,     /*  I  | J = N or M        | weight vector q           */
        int           *T,     /* I/W | 3 x J +1          | kdtree                    */
        int            D,     /*  I  | const.            | dimension                 */

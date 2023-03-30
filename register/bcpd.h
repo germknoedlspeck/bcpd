@@ -21,7 +21,7 @@
 #define ZERO 1e-8
 
 typedef struct pairwise_size  {int D; int M; int N; int K; int J;} pwsz;
-typedef struct pairwise_param {char fn[6][256]; char nrm; int opt;
+typedef struct pairwise_param {char fn[7][256]; char nrm; int opt;
   int nlp; int G; double dlt; double omg; double gma;
   int llp; int J; double lim; double lmd; double bet;
   int rns; int K; double btn; double kpa; double cnv;
@@ -40,7 +40,7 @@ enum pairwise_option {
   PW_OPT_SAVEV = (1 << 8), PW_OPT_INFO  = (1 <<17),
 };
 
-enum {SOURCE=0, TARGET=1, OUTPUT=2, FACE_Y=3, FUNC_Y=4, FUNC_X=5, };
+enum {SOURCE=0, TARGET=1, OUTPUT=2, FACE_Y=3, FUNC_Y=4, FUNC_X=5, ERRORS=6};
 
 int bcpd(
   double        *   x,    /*  O  | DM x 1 (+nlp) | aligned target shape     */
@@ -60,6 +60,7 @@ int bcpd(
   int           *   wi,   /*  W  |    *          | working memory (int)     */
   const double  *   X,    /*  I  | DN x 1        | target point set         */
   const double  *   Y,    /*  I  | DM x 1        | source point set         */
+  const double  *   Zeta, /*  I  |  N x 1        | target point errors      */
   const double  *   LQ,   /*  I  | K + M x K     | only for geodesic kernel */
   const pwsz        sz,   /*  I  |               | D, M, N, K, J            */
   const pwpm        pm    /*  I  |               | tuning parameters        */

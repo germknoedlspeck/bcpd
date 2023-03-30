@@ -37,6 +37,7 @@ void gaussprod_l(
        int           *wi,    /*  W  |   *               | memory                    */
        const double  *Y,     /*  I  | D  x M            | input matrix Y            */
        const double  *X,     /*  I  | D  x N            | input matrix X            */
+       const double  *Zeta,  /*  I  | N                 | input errors Zeta         */
        const double  *fy,    /*  I  | Df x M            | function values fy        */
        const double  *fx,    /*  I  | Df x N            | function values fx        */
        const double  *q,     /*  I  | J = N or M        | weight vector q           */
@@ -56,6 +57,7 @@ void gaussprod_l(
   double *Z=NULL,*W=NULL,*K=NULL,*E=NULL; double reg=1e-8,rad=fmin(h*dlt,lim); int si=0,sd=0;
   int mtd=MAXTREEDEPTH; int *a,*u,*S,*bi; double *bd; double val;
   int tr=flg&GRAM_FLAG_TRANS; int nc=1+(tr?0:(D+Df));
+  double variance;
 
   if(fx) assert(fy); else assert(fy==NULL&&Df==0);
   if(tr) assert(nc==1&&U==NULL&&V==NULL);
@@ -71,13 +73,15 @@ void gaussprod_l(
     for(i=0;i<I;i++)for(d=0;d<Df;d++) V[i+I*d]=0;
   }
   /* switch */
-  if(flg&GRAM_FLAG_LOCAL)  goto neighbor;
+  /*if(flg&GRAM_FLAG_LOCAL)  goto neighbor;
   if(P) goto nystrom; else goto direct;
 
-  direct:
-  #pragma omp parallel for private (j) private (d) private(val)
+  direct:*/
+  #pragma omp parallel for private (j) private (d) private(val) private (variance)
   for(i=0;i<I;i++)for(j=0;j<J;j++){
-    val=q[j]*gauss(A+D*i,B+D*j,D,h)*(fx?gauss(F+Df*i,G+Df*j,Df,hf):1);
+    variance = h*h+(tr==0?Zeta[j]:Zeta[i]);
+    val=q[j]*gauss(A+D*i,B+D*j,D,sqrt(variance))*(fx?gauss(F+Df*i,G+Df*j,Df,hf):1);
+    if(flg&GRAM_FLAG_STARR) val*=h*h/variance;
     w[i]+=val; if(tr) continue;
     for(d=0;d<D; d++) U[i+I*d]+=val*B[d+D *j];
     for(d=0;d<Df;d++) V[i+I*d]+=val*G[d+Df*j];
@@ -137,6 +141,7 @@ void gaussprod(
        int           *wi,    /*  W  |   *               | memory                    */
        const double  *Y,     /*  I  | D  x M            | input matrix Y            */
        const double  *X,     /*  I  | D  x N            | input matrix X            */
+       const double  *Zeta,  /*  I  | N                 | input errors Zeta         */
        const double  *q,     /*  I  | J = N or M        | weight vector q           */
        int           *T,     /* I/W | 3 x J +1          | kdtree                    */
        int            D,     /*  I  | const.            | dimension                 */
@@ -147,7 +152,7 @@ void gaussprod(
        double         dlt,   /*  I  | const.            | neighbor width rate for h */
        double         lim,   /*  I  | const.            | maximum radius for kdtree */
        int            flg    /*  I  | const.            | flag:local+reuse+trans    */
-){gaussprod_l(f,NULL,NULL,wd,wi,Y,X,NULL,NULL,q,T,D,0,M,N,P,h,0,dlt,lim,flg);}
+){gaussprod_l(f,NULL,NULL,wd,wi,Y,X,Zeta,NULL,NULL,q,T,D,0,M,N,P,h,0,dlt,lim,flg);}
 
 void gaussprod_batch(
        double        *w,     /*  O  | M or N            | required for w=P1         */
@@ -156,6 +161,7 @@ void gaussprod_batch(
        int           *wi,    /*  W  |   *               | memory                    */
        const double  *Y,     /*  I  | D  x M            | input matrix Y            */
        const double  *X,     /*  I  | D  x N            | input matrix X            */
+       const double  *Zeta,  /*  I  | N                 | input errors Zeta         */
        const double  *q,     /*  I  | J = N or M        | weight vector q           */
        int           *T,     /* I/W | 3 x J +1          | kdtree                    */
        int            D,     /*  I  | const.            | dimension                 */
@@ -166,5 +172,5 @@ void gaussprod_batch(
        double         dlt,   /*  I  | const.            | neighbor width rate for h */
        double         lim,   /*  I  | const.            | maximum radius for kdtree */
        int            flg    /*  I  | const.            | flag:local+reuse+trans    */
-){gaussprod_l(w,PX,NULL,wd,wi,Y,X,NULL,NULL,q,T,D,0,M,N,P,h,0,dlt,lim,flg);}
+){gaussprod_l(w,PX,NULL,wd,wi,Y,X,Zeta,NULL,NULL,q,T,D,0,M,N,P,h,0,dlt,lim,flg);}
 
